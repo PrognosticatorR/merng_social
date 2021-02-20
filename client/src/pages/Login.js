@@ -1,58 +1,84 @@
-import { useState } from "react";
+import gql from "graphql-tag";
+import { useState, useContext } from "react";
 import { Button, Form } from "semantic-ui-react";
-const Login = () => {
-   const [values, setValues] = useState({
+import { useMutation } from "@apollo/client";
+import { useForm } from "../util/hooks";
+import { AuthContext } from "../context/auth";
+
+const Login = (props) => {
+   const context = useContext(AuthContext);
+   const [errors, setErrors] = useState({});
+
+   const { onChange, onSubmit, values } = useForm(loginUserCB, {
       username: "",
-      email: "",
       password: "",
-      confirmPassword: "",
    });
 
-   function handleSubmit(e) {
-      e.preventDefault();
-      console.log(values);
+   const [loginUser, { loading }] = useMutation(LOGIN_USER, {
+      update(_, { data: { login: userData } }) {
+         setErrors({});
+         context.login(userData);
+         props.history.push("/");
+      },
+      onError(err) {
+         setErrors(err.graphQLErrors[0].extensions.errors);
+      },
+      variables: values,
+   });
+
+   function loginUserCB() {
+      loginUser();
    }
-   function onChange(e) {
-      setValues({ ...values, [e.target.name]: e.target.value });
-   }
+
    return (
-      <div>
-         <Form onSubmit={handleSubmit} noValidate>
-            <h1>Register</h1>
+      <div className="form-container">
+         <Form onSubmit={onSubmit} noValidate className={loading ? "loading" : ""}>
+            <h1>Login</h1>
             <Form.Input
-               label="username"
-               placeholder="Username"
+               type="text"
+               label="Username"
+               placeholder="username"
                name="username"
+               error={errors.general ? true : false}
                valuw={values.username}
                onChange={onChange}
             />
             <Form.Input
-               label="email"
-               placeholder="email"
-               name="email"
-               valuw={values.email}
-               onChange={onChange}
-            />
-            <Form.Input
+               type="password"
                label="password"
                placeholder="password"
                name="password"
+               error={errors.password ? true : false}
                valuw={values.password}
                onChange={onChange}
             />
-            <Form.Input
-               label="confirmPassword"
-               placeholder="confirmPassword"
-               name="confirmPassword"
-               valuw={values.confirmPassword}
-               onChange={onChange}
-            />
             <Button type="submit" primary>
-               Register
+               Login
             </Button>
          </Form>
+         {Object.keys(errors).length > 0 && (
+            <div className="ui error message">
+               <ul className="list">
+                  {Object.values(errors).map((value) => (
+                     <li key={value}>{value}</li>
+                  ))}
+               </ul>
+            </div>
+         )}
       </div>
    );
 };
+
+const LOGIN_USER = gql`
+   mutation login($username: String!, $password: String!) {
+      login(username: $username, password: $password) {
+         id
+         email
+         username
+         createdAt
+         token
+      }
+   }
+`;
 
 export default Login;
